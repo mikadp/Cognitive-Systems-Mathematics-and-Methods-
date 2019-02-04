@@ -1,0 +1,87 @@
+
+# Import libraries and dataset
+goal is to construct a small yet useful decision tree that predicts whether a website is a phishing site or not.
+
+import pandas as pd
+import numpy as np
+import sklearn
+import csv
+from sklearn import tree
+import graphviz
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
+from sklearn import datasets, linear_model
+from sklearn.model_selection import cross_val_score
+from IPython.display import IFrame
+
+#read data
+df = pd.read_csv('phishing.csv', sep=';')
+
+#drop rows with missing data
+df.dropna(axis=0, how='any', inplace=True)
+
+# save column headings into a list
+colnames = df.columns.get_values()
+
+df['Result'] = df['Result'].astype(pd.api.types.CategoricalDtype(ordered=False))
+
+df.dtypes
+
+#Extract explanatory variables into a data frame
+X = df.loc[:, 'having_IP_Address' : 'URL_Length' ]
+
+#Extract response variable
+Y = df.loc[:, 'Result']
+
+#Decision thee classification
+classifier = tree.DecisionTreeClassifier(max_depth = None)
+classifier.fit(X,Y)
+
+# visualize
+dot_data = tree.export_graphviz(classifier, out_file=None, feature_names=colnames[:2], class_names=['no','yes'])
+graph = graphviz.Source(dot_data)
+graph.render("Phising web sites")
+
+IFrame("Phising web sites.pdf", width=900, height=700)
+
+# Predict
+Y_pred = classifier.predict(X)
+
+#Output confusion matrix
+cm = confusion_matrix(Y, Y_pred)
+print("Confusion matrix: \n",cm)
+
+accuracy = (cm[0][0]+cm[1][1])/(cm[0][0]+cm[1][1]+cm[0][1]+cm[1][0])
+print("Accuracy from training set = %.3f" % (accuracy))
+
+print(classification_report(Y, Y_pred, target_names=['No', 'Yes']))
+
+#cross-validate
+#number of folds
+k = 10
+scores = cross_val_score(estimator=classifier,
+                        X=X,
+                        y=Y,
+                        scoring="accuracy",
+                        cv=k)
+print("Accuracies from %d individual folds:" % k)
+print(scores)
+print("Accuracy calcuted using %d-fold cross validation = %.3f" % (k, scores.mean()))
+
+# Experiment with min_samples_leaf to find the best model.
+
+for leaf in range(201,-1,-20):
+    print("min_samples_leaf: %d" % leaf)
+    classifier = tree.DecisionTreeClassifier(min_samples_leaf=leaf)
+    classifier.fit(X,Y)
+    Y_pred = classifier.predict(X)
+    cm = confusion_matrix(Y, Y_pred)
+    accuracy = (cm[0][0]+cm[1][1])/(cm[0][0]+cm[1][1]+cm[0][1]+cm[1][0])
+    print("  Accuracy calculated from the training set = %.3f" % (accuracy))
+    
+    scores = cross_val_score(estimator=classifier,
+                        X=X,
+                        y=Y,
+                        scoring="accuracy",
+                        cv=k)
+    print("  Accuracy calculated using %d-fold cross validation = %.3f" % (k, scores.mean()))
